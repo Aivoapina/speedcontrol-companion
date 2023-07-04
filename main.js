@@ -1,10 +1,11 @@
-const { InstanceBase, Regex, runEntrypoint, InstanceStatus } = require('@companion-module/base')
-const UpgradeScripts = require('./upgrades')
-const UpdateActions = require('./actions')
-const UpdateFeedbacks = require('./feedbacks')
-const UpdateVariableDefinitions = require('./variables')
+import { InstanceBase, Regex, runEntrypoint, InstanceStatus } from '@companion-module/base'
+import WebSocket from 'ws'
+import UpgradeScripts from './upgrades.js'
+import { getActions } from './actions.js';
+import UpdateFeedbacks from './feedbacks.js';
+import UpdateVariableDefinitions from './variables.js';
 
-class ModuleInstance extends InstanceBase {
+class SpeedControl extends InstanceBase {
 	constructor(internal) {
 		super(internal)
 	}
@@ -14,33 +15,43 @@ class ModuleInstance extends InstanceBase {
 
 		this.updateStatus(InstanceStatus.Ok)
 
+    if (this.config.host && this.config.port) {
+			 await this.connectToWS()
+		} else if (this.config.host && !this.config.port) {
+			this.updateStatus('bad_config', 'Missing WebSocket Server port')
+		} else if (!this.config.host && this.config.port) {
+			this.updateStatus('bad_config', 'Missing WebSocket Server IP address or hostname')
+		} else {
+			this.updateStatus('bad_config', 'Missing WebSocket Server connection info')
+		}
+
 		this.updateActions() // export actions
 		this.updateFeedbacks() // export feedbacks
 		this.updateVariableDefinitions() // export variable definitions
 	}
-	// When module gets deleted
+
 	async destroy() {
-		this.log('debug', 'destroy')
+		this.log('debug', 'destroy');
+    this.disconnectWS();
 	}
 
 	async configUpdated(config) {
-		this.config = config
+    this.init(config)
 	}
 
-	// Return config fields for web config
 	getConfigFields() {
 		return [
 			{
 				type: 'textinput',
 				id: 'host',
-				label: 'Target IP',
+				label: 'Websocket IP',
 				width: 8,
 				regex: Regex.IP,
 			},
 			{
 				type: 'textinput',
 				id: 'port',
-				label: 'Target Port',
+				label: 'Websocket Port',
 				width: 4,
 				regex: Regex.PORT,
 			},
@@ -48,7 +59,8 @@ class ModuleInstance extends InstanceBase {
 	}
 
 	updateActions() {
-		UpdateActions(this)
+		const actions = getActions.bind(this)()
+    this.setActionDefinitions(actions)
 	}
 
 	updateFeedbacks() {
@@ -58,6 +70,27 @@ class ModuleInstance extends InstanceBase {
 	updateVariableDefinitions() {
 		UpdateVariableDefinitions(this)
 	}
+
+  async connectToWS() {
+    if (this.ws) {
+      await this.disconnectWS();
+    } else {
+      this.ws = new WebSocket(`ws://${this.config.host}:${this.config.port}`)
+    }
+  }
+
+  async disconnectWS() {
+    if (this.ws) {
+      this.ws.close();
+    }
+  }
+
+  async sendMessage(type) {
+    console.log('Sending message', type);
+    this.ws.send(type, (err) => {
+      console.log(err)
+    })
+  }
 }
 
-runEntrypoint(ModuleInstance, UpgradeScripts)
+runEntrypoint(SpeedControl, UpgradeScripts)
