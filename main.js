@@ -2,21 +2,28 @@ import { InstanceBase, Regex, runEntrypoint, InstanceStatus } from '@companion-m
 import WebSocket from 'ws'
 import UpgradeScripts from './upgrades.js'
 import { getActions } from './actions.js';
-import UpdateFeedbacks from './feedbacks.js';
-import UpdateVariableDefinitions from './variables.js';
+import { getFeedbacks } from './feedbacks.js';
+import { getVariables } from './variables.js';
 
 class SpeedControl extends InstanceBase {
 	constructor(internal) {
 		super(internal)
 	}
 
+	state = {
+		timerState: 'stopped',
+		timerTime: '00:00:00'
+	}
+
+	reconnectInterval = null;
+
 	async init(config) {
 		this.config = config
 
 		this.updateStatus(InstanceStatus.Ok)
 
-    if (this.config.host && this.config.port) {
-			 await this.connectToWS()
+		if (this.config.host && this.config.port) {
+			await this.connectToWS()
 		} else if (this.config.host && !this.config.port) {
 			this.updateStatus('bad_config', 'Missing WebSocket Server port')
 		} else if (!this.config.host && this.config.port) {
@@ -32,11 +39,11 @@ class SpeedControl extends InstanceBase {
 
 	async destroy() {
 		this.log('debug', 'destroy');
-    this.disconnectWS();
+		this.disconnectWS();
 	}
 
 	async configUpdated(config) {
-    this.init(config)
+		this.init(config)
 	}
 
 	getConfigFields() {
@@ -60,37 +67,68 @@ class SpeedControl extends InstanceBase {
 
 	updateActions() {
 		const actions = getActions.bind(this)()
-    this.setActionDefinitions(actions)
+		this.setActionDefinitions(actions)
 	}
 
 	updateFeedbacks() {
-		UpdateFeedbacks(this)
+		const feedbacks = getFeedbacks.bind(this)();
+		this.setFeedbackDefinitions(feedbacks);
 	}
 
 	updateVariableDefinitions() {
-		UpdateVariableDefinitions(this)
+		const variables = getVariables.bind(this)();
+		this.setVariableDefinitions(variables);
 	}
 
-  async connectToWS() {
-    if (this.ws) {
-      await this.disconnectWS();
-    } else {
-      this.ws = new WebSocket(`ws://${this.config.host}:${this.config.port}`)
-    }
-  }
+	async connectToWS() {
+		if (this.ws) {
+			await this.disconnectWS();
+		} else {
+			this.ws = new WebSocket(`ws://${this.config.host}:${this.config.port}`);
+			this.ws.on('error', () => this.tryReconnectWS());
+			this.startFeedbackListener();
+		}
+	}
 
-  async disconnectWS() {
-    if (this.ws) {
-      this.ws.close();
-    }
-  }
+	async tryReconnectWS() {
+		console.log('Trying to reconnect');
+		this.stopReconnectInterval();
+		this.reconnectInterval = setInterval(() => {
+			this.connectToWS();
+		}, 5000);
+	}
 
-  async sendMessage(type) {
-    console.log('Sending message', type);
-    this.ws.send(type, (err) => {
-      console.log(err)
-    })
-  }
+	async stopReconnectInterval() {
+		if (this.reconnectInterval) {
+			clearInterval(this.reconnectInterval)
+			this.reconnectInterval
+		}
+	}
+
+	async disconnectWS() {
+		if (this.ws) {
+			this.ws.close();
+			this.ws = null;
+		}
+	}
+
+	async sendMessage(type) {
+		this.ws.send(type, (err) => {
+			console.log(err)
+		})
+	}
+
+	async startFeedbackListener() {
+		this.ws.on('message', data => {
+			const parsedData = JSON.parse(data.toString());
+			if (parsedData.type === 'timer') {
+				this.state.timerTime = parsedData.time;
+				this.state.timerState = parsedData.state;
+				this.checkFeedbacks();
+			}
+		})
+	}
+
 }
 
 runEntrypoint(SpeedControl, UpgradeScripts)

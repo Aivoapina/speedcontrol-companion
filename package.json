@@ -2,7 +2,7 @@
 	"name": "speedcontrol-companion",
 	"version": "0.1.0",
 	"main": "main.js",
-  "type": "module",
+	"type": "module",
 	"scripts": {
 		"format": "prettier -w ."
 	},

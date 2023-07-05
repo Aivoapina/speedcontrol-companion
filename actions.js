@@ -1,10 +1,14 @@
 export function getActions() {
   return {
     startTimer: {
-      name: 'Start Timer',
+      name: 'Start/pause Timer',
       options: [],
       callback: () => {
-        this.sendMessage('timerStart')
+        if (this.state.timerState === 'running') {
+          this.sendMessage('timerPause');
+        } else {
+          this.sendMessage('timerStart');
+        }
       }
     },
     pauseTimer: {
@@ -40,6 +44,13 @@ export function getActions() {
       options: [],
       callback: () => {
         this.sendMessage('changeToNextRun')
+      }
+    },
+    changeToPrevRun: {
+      name: 'Change to previous run',
+      options: [],
+      callback: () => {
+        this.sendMessage('changeActiveRun')
       }
     },
     twitchStartCommercial: {

@@ -2,15 +2,15 @@
 	"id": "speedcontrol-companion",
 	"name": "Speedcontrol Companion",
 	"shortname": "speedcontrol-companion",
-	"description": "A short one line description of your module",
-	"version": "0.0.0",
+	"description": "Nodecg speedcontrol controller",
+	"version": "1.0.0",
 	"license": "MIT",
 	"repository": "git+https://github.com/bitfocus/companion-module-your-module-name.git",
 	"bugs": "https://github.com/bitfocus/companion-module-your-module-name/issues",
 	"maintainers": [
 		{
-			"name": "Your name",
-			"email": "Your email"
+			"name": "Aivoapina",
+			"email": "anssi.varjonen@gmail.com"
 		}
 	],
 	"runtime": {
@@ -20,7 +20,9 @@
 		"entrypoint": "../main.js"
 	},
 	"legacyIds": [],
-	"manufacturer": "123",
-	"products": ["Speedcontrol"],
+	"manufacturer": "Finnruns",
+	"products": [
+		"Speedcontrol"
+	],
 	"keywords": []
 }
