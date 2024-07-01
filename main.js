@@ -12,7 +12,9 @@ class SpeedControl extends InstanceBase {
 
 	state = {
 		timerState: 'stopped',
-		timerTime: '00:00:00'
+		timerTime: '00:00:00',
+    donateStatus: false,
+    teams: [],
 	}
 
 	reconnectInterval = null;
@@ -112,8 +114,8 @@ class SpeedControl extends InstanceBase {
 		}
 	}
 
-	async sendMessage(type) {
-		this.ws.send(type, (err) => {
+	async sendMessage(data) {
+		this.ws.send(JSON.stringify(data), (err) => {
 			console.log(err)
 		})
 	}
@@ -124,8 +126,13 @@ class SpeedControl extends InstanceBase {
 			if (parsedData.type === 'timer') {
 				this.state.timerTime = parsedData.time;
 				this.state.timerState = parsedData.state;
-				this.checkFeedbacks();
-			}
+			} else if (parsedData.type === 'donateStatus') {
+        this.state.donateStatus = parsedData.value;
+      } else if (parsedData.type === 'runData') {
+        // we only take teams data for now.
+        this.state.teams = parsedData.teams;
+      }
+      this.checkFeedbacks();
 		})
 	}
 

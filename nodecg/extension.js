@@ -5,16 +5,20 @@ const wss = new WebSocketServer({
 });
 let prevRun = {};
 
+const BUNDLE_NAME = 'nodecg-speedcontrol';
+
 module.exports = async function (nodecg) {
-  const timerReplicant = nodecg.Replicant('timer', 'nodecg-speedcontrol');
-  const runDataActiveRun = nodecg.Replicant('runDataActiveRun', 'nodecg-speedcontrol');
+  const timerReplicant = nodecg.Replicant('timer', BUNDLE_NAME);
+  const runDataActiveRun = nodecg.Replicant('runDataActiveRun', BUNDLE_NAME);
+  const donateStatus = nodecg.Replicant('donateStatus', BUNDLE_NAME);
 
   wss.on('connection', ws => {
     ws.on('error', console.error);
 
     ws.on('message', (data) => {
-      sendBundleMsg(nodecg, data.toString(), runDataActiveRun.value)
+      sendBundleMsg(JSON.parse(data.toString()), runDataActiveRun.value)
     });
+
     timerReplicant.on('change', (newVal, oldVal) => {
       if (!newVal || !oldVal) {
         return;
@@ -24,23 +28,35 @@ module.exports = async function (nodecg) {
         ws.send(data);
       }
     });
+
+    donateStatus.on('change', newVal => {
+      const data = JSON.stringify({ type: 'donateStatus', value: newVal });
+      ws.send(data);
+    });
+
+    runDataActiveRun.on('change', (newVal, oldVal) => {
+      const data = JSON.stringify({ type: 'runData', ...newVal })
+      ws.send(data)
+      prevRun = oldVal;
+    })
   });
-  runDataActiveRun.on('change', (newVal, oldVal) => {
-    prevRun = oldVal;
-  })
+
+  const sendBundleMsg = (msg, runData) => {
+    let payload = null;
+    if (msg.type === 'timerStop') {
+      payload = { id: msg.id, forfeit: false }
+    } else if (msg.type === 'timerUndo') {
+      payload = msg.id
+    } else if (msg.type === 'twitchStartCommercial') {
+      payload = { duration: 180, fromDashboard: false }
+    } else if (msg.type === 'changeActiveRun') {
+      if (!prevRun) return;
+      payload = prevRun.id
+    } else if (msg.type === 'donateStatus') {
+      donateStatus.value = msg.status
+    }
+    nodecg.sendMessageToBundle(msg.type, 'nodecg-speedcontrol', payload, (err) => { console.log(err) });
+  }
 };
 
-const sendBundleMsg = (nodecg, msg, runData) => {
-  let payload = null;
-  if (msg === 'timerStop') {
-    payload = { id: runData.teams[0].id, forfeit: false }
-  } else if (msg === 'timerUndo') {
-    payload = runData.teams[0].id
-  } else if (msg === 'twitchStartCommercial') {
-    payload = { duration: 180, fromDashboard: false }
-  } else if (msg === 'changeActiveRun') {
-    if (!prevRun) return;
-    payload = prevRun.id
-  }
-  nodecg.sendMessageToBundle(msg, 'nodecg-speedcontrol', payload, (err) => { console.log(err) });
-}
+

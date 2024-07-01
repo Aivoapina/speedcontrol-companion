@@ -6,6 +6,7 @@ export function getFeedbacks() {
 	const black = combineRgb(0, 0, 0);
 	const white = combineRgb(255, 255, 255);
 	const yellow = combineRgb(255, 255, 0);
+  const red = combineRgb(255, 0, 0);
 
 	return {
 		playing: {
@@ -36,6 +37,40 @@ export function getFeedbacks() {
 				}
 				return { text: this.state.timerTime, bgcolor: bgColor, color }
 			}
-		}
+		},
+    donationStatus: {
+      name: 'Shows the current donation info status',
+      type: 'advanced',
+      options: [],
+      callback: () => {
+        if (this.state.donateStatus) {
+          return { text: 'Lahjoituksia', bgColor: red }
+        } else {
+          return { text: 'Ei lahjoituksia', bgColor: green }
+        }
+      }
+    },
+    racerName: {
+      name: 'Shows the name of racer',
+      type: 'advanced',
+      options: [
+        {
+          type: 'number',
+          label: 'Player number',
+          id: 'playerNum',
+          default: 1,
+          min: 1,
+          max: 4,
+          range: false
+        }
+      ],
+      callback: (action) => {
+        const { playerNum } = action.options;
+        if (this.state.teams[playerNum - 1]) {
+          return { text: this.state.teams[playerNum - 1].players[0].name }
+        }
+        return { text: '', disabled: true }
+      }
+    }
 	}
 }
